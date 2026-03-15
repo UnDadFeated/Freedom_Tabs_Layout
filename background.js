@@ -18,12 +18,11 @@ async function restoreLayout(layout) {
         
         for (let i = 0; i < layout.data.length; i++) {
             const winData = layout.data[i];
-            await updateStatus(`Window ${i+1}/${layout.data.length}: Anchoring ghost window...`, 'info');
+            await updateStatus(`Window ${i+1}/${layout.data.length}: Bursting to ${winData.displayName}...`, 'info');
             
-            // 1. Create BLANK window first at target coordinates
-            // Empty URL array ensures the window manager isn't "busy" during initial placement.
+            // 1. Create window with tabs IMMEDIATELY (Faster)
             const createData = {
-                url: 'about:blank',
+                url: winData.tabs,
                 type: winData.type || 'normal',
                 left: Math.round(winData.left),
                 top: Math.round(winData.top),
@@ -33,49 +32,31 @@ async function restoreLayout(layout) {
             };
 
             const newWindow = await chrome.windows.create(createData);
-            const initialTabId = newWindow.tabs[0].id;
 
-            // 2. MONITOR SETTLE: Heavy wait for Linux Window Manager to "anchor" the empty window (2000ms)
-            await new Promise(resolve => setTimeout(resolve, 2000));
-
-            await updateStatus(`Window ${i+1}/${layout.data.length}: Populating ${winData.tabs.length} tabs...`, 'info');
-
-            // 3. POPULATE TABS: Create the saved tabs in the ghost window
-            for (const url of winData.tabs) {
-                await chrome.tabs.create({
-                    windowId: newWindow.id,
-                    url: url,
-                    active: false // Keep them in background to reduce window manager signals
-                });
-                // Micro-delay between tabs for responsiveness
-                await new Promise(resolve => setTimeout(resolve, 100));
+            // 2. PULSE POSITIONING: Brute-force shove
+            // We call update 8 times over 2 seconds to overcome Linux "Smart Placement" cascading.
+            for (let pulse = 0; pulse < 8; pulse++) {
+                try {
+                    await chrome.windows.update(newWindow.id, {
+                        left: Math.round(winData.left),
+                        top: Math.round(winData.top),
+                        width: Math.round(winData.width),
+                        height: Math.round(winData.height)
+                    });
+                } catch (e) {
+                    console.warn(`Pulse ${pulse} failed:`, e);
+                }
+                await new Promise(resolve => setTimeout(resolve, 250));
             }
 
-            // 4. CLEANUP: Close the initial about:blank tab
-            await chrome.tabs.remove(initialTabId);
-
-            // 5. FINALIZE POSITION: One last attempt to correct any "smart placement" shift
-            try {
-                await chrome.windows.update(newWindow.id, {
-                    left: Math.round(winData.left),
-                    top: Math.round(winData.top),
-                    width: Math.round(winData.width),
-                    height: Math.round(winData.height)
-                });
-            } catch (err) {
-                console.warn(`Final coordinate check failed:`, err);
-            }
-
-            // 6. APPLY STATE: Final maximized/minimized state
+            // 3. APPLY STATE: Final maximized/minimized state
             if (winData.state && winData.state !== 'normal') {
-                await new Promise(resolve => setTimeout(resolve, 800));
                 await chrome.windows.update(newWindow.id, { state: winData.state });
             }
             
-            // 7. SEQUENTIAL LOCK: Give the OS 3 full seconds to breathe before next window
+            // 4. SEQUENTIAL LOCK: Faster cooldown (1s)
             if (i < layout.data.length - 1) {
-                await updateStatus(`Window ${i+1} complete. Waiting for OS sync...`, 'info');
-                await new Promise(resolve => setTimeout(resolve, 3000));
+                await new Promise(resolve => setTimeout(resolve, 1000));
             }
         }
 

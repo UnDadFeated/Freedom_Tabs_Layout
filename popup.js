@@ -22,9 +22,13 @@ document.addEventListener('DOMContentLoaded', () => {
     saveBtn.addEventListener('click', async () => {
         const name = layoutNameInput.value.trim() || `Layout ${new Date().toLocaleString()}`;
         
-        try {
             const allWindows = await chrome.windows.getAll({ populate: true });
-            const windows = allWindows.filter(win => win.type === 'normal');
+            const windows = allWindows.filter(win => {
+                // Only save normal windows with actual content
+                if (win.type !== 'normal') return false;
+                const activeTabs = win.tabs.filter(t => t.url && !t.url.startsWith('about:'));
+                return activeTabs.length > 0;
+            });
             const displays = await chrome.system.display.getInfo();
 
             const layoutData = await Promise.all(windows.map(async (win) => {
