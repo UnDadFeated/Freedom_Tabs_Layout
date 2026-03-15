@@ -22,6 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
     saveBtn.addEventListener('click', async () => {
         const name = layoutNameInput.value.trim() || `Layout ${new Date().toLocaleString()}`;
         
+        try {
             const allWindows = await chrome.windows.getAll({ populate: true });
             const windows = allWindows.filter(win => {
                 // Only save normal windows with actual content
