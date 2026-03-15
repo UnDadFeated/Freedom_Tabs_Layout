@@ -1,8 +1,11 @@
 {
   "manifest_version": 3,
   "name": "Freedom Tabs Layout",
-  "version": "3.3",
+  "version": "3.4",
   "description": "Save and load layouts of open chrome windows and tabs with ease.",
+  "background": {
+    "service_worker": "background.js"
+  },
   "permissions": [
     "tabs",
     "windows",

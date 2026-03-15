@@ -281,53 +281,23 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function restoreLayout(layout) {
-        try {
-            showStatus(`Restoring "${layout.name}"...`, 'info');
-            
-            for (let i = 0; i < layout.data.length; i++) {
-                const winData = layout.data[i];
-                showStatus(`Window ${i + 1}/${layout.data.length}: Initializing...`, 'info');
-                
-                const createData = {
-                    url: winData.tabs,
-                    type: winData.type,
-                    state: 'normal'
-                };
-
-                const newWindow = await chrome.windows.create(createData);
-
-                // Wait for window to be fully registered by OS/Linux (1000ms)
-                await new Promise(resolve => setTimeout(resolve, 1000));
-
-                showStatus(`Window ${i+1}/${layout.data.length}: Positioning to ${winData.displayName}...`, 'info');
-
-                const updateData = {
-                    left: Math.round(winData.left),
-                    top: Math.round(winData.top),
-                    width: Math.round(winData.width),
-                    height: Math.round(winData.height),
-                    focused: true
-                };
-
-                try {
-                    await chrome.windows.update(newWindow.id, updateData);
-                } catch (err) {
-                    console.error(`Positioning failed for window ${i+1}:`, err);
-                    showStatus(`Warning: Window ${i+1} move failed.`, 'error');
-                }
-
-                await new Promise(resolve => setTimeout(resolve, 500));
-
-                if (winData.state && winData.state !== 'normal') {
-                    await chrome.windows.update(newWindow.id, { state: winData.state });
-                }
-            }
-
-            showStatus(`Layout "${layout.name}" restored successfully!`, 'success');
-        } catch (error) {
-            console.error('Restoration failed:', error);
-            showStatus(`Restoration failed: ${error.message}`, 'error');
+    // Listen for status updates from background
+    chrome.storage.onChanged.addListener((changes, area) => {
+        if (area === 'local' && changes.lastStatus) {
+            const status = changes.lastStatus.newValue;
+            showStatus(status.message, status.type);
         }
+    });
+
+    // Check for any recent status on load
+    chrome.storage.local.get(['lastStatus'], (result) => {
+        if (result.lastStatus && (Date.now() - result.lastStatus.timestamp < 10000)) {
+            showStatus(result.lastStatus.message, result.lastStatus.type);
+        }
+    });
+
+    async function restoreLayout(layout) {
+        showStatus(`Sending restore command for "${layout.name}"...`, 'info');
+        chrome.runtime.sendMessage({ type: 'RESTORE_LAYOUT', layout: layout });
     }
 });
