@@ -173,6 +173,25 @@ h3 {
   white-space: pre-wrap;
   border: 1px solid var(--border);
   display: none;
+  position: relative;
+}
+
+.copy-debug-btn {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 6px;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  cursor: pointer;
+  opacity: 0.9;
+}
+
+.copy-debug-btn:hover {
+  opacity: 1;
 }
 
 .layout-name-text {

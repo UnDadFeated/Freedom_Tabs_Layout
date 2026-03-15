@@ -113,15 +113,27 @@ document.addEventListener('DOMContentLoaded', () => {
             // Build a small coordinate summary for debugging
             const coordsInfo = layout.data.map(w => `[${w.left},${w.top}]`).join(' ');
 
+            const debugJson = JSON.stringify({ 
+                displays: layout.displaySetup || [], 
+                windows: layout.data.map(w => ({ 
+                    left: w.left, 
+                    top: w.top, 
+                    width: w.width, 
+                    height: w.height, 
+                    monitor: w.displayName,
+                    displayId: w.displayId
+                }))
+            }, null, 2);
+
             item.innerHTML = `
                 <div class="layout-info">
                     <span class="layout-name-text">${layout.name}</span>
                     <span class="layout-meta">${windowCount} windows on ${monitorNames} • ${tabCount} tabs</span>
                     <button class="debug-toggle">Show Debug Info</button>
-                    <div class="debug-info">${JSON.stringify({ 
-                        displays: layout.displaySetup, 
-                        windows: layout.data.map(w => ({ left: w.left, top: w.top, width: w.width, height: w.height, monitor: w.displayName }))
-                    }, null, 2)}</div>
+                    <div class="debug-info">
+                        <div class="debug-text">${debugJson}</div>
+                        <button class="copy-debug-btn">Copy Debug Data</button>
+                    </div>
                 </div>
                 <div class="layout-actions">
                     <button class="icon-btn delete-btn" title="Delete" data-id="${layout.id}">
@@ -133,6 +145,8 @@ document.addEventListener('DOMContentLoaded', () => {
             // Debug toggle functionality
             const debugToggle = item.querySelector('.debug-toggle');
             const debugInfo = item.querySelector('.debug-info');
+            const copyBtn = item.querySelector('.copy-debug-btn');
+
             debugToggle.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const isHidden = debugInfo.style.display === 'none' || !debugInfo.style.display;
@@ -140,9 +154,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 debugToggle.textContent = isHidden ? 'Hide Debug Info' : 'Show Debug Info';
             });
 
-            // Restore layout on click (except if clicking delete/debug)
+            copyBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                navigator.clipboard.writeText(debugJson).then(() => {
+                    const originalText = copyBtn.textContent;
+                    copyBtn.textContent = 'Copied!';
+                    setTimeout(() => copyBtn.textContent = originalText, 2000);
+                });
+            });
+
+            // Restore layout on click (except if clicking delete/debug/copy)
             item.addEventListener('click', (e) => {
-                if (!e.target.closest('.delete-btn') && !e.target.closest('.debug-toggle')) {
+                if (!e.target.closest('.delete-btn') && !e.target.closest('.debug-toggle') && !e.target.closest('.copy-debug-btn')) {
                     restoreLayout(layout);
                 }
             });
