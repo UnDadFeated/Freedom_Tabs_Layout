@@ -10,18 +10,36 @@ document.addEventListener('DOMContentLoaded', () => {
         const name = layoutNameInput.value.trim() || `Layout ${new Date().toLocaleString()}`;
         
         try {
-            const windows = await chrome.windows.getAll({ populate: true });
-            const layoutData = windows.map(win => ({
-                tabs: win.tabs.map(tab => tab.url),
-                type: win.type,
-                state: win.state,
-                incognito: win.incognito,
-                // Capture window geometry
-                left: win.left,
-                top: win.top,
-                width: win.width,
-                height: win.height
-            }));
+            const [windows, displays] = await Promise.all([
+                chrome.windows.getAll({ populate: true }),
+                chrome.system.display.getInfo()
+            ]);
+
+            const layoutData = windows.map(win => {
+                // Find which display this window is primarily on
+                const winCenterX = win.left + (win.width / 2);
+                const winCenterY = win.top + (win.height / 2);
+                
+                const display = displays.find(d => 
+                    winCenterX >= d.bounds.left && 
+                    winCenterX <= d.bounds.left + d.bounds.width &&
+                    winCenterY >= d.bounds.top && 
+                    winCenterY <= d.bounds.top + d.bounds.height
+                ) || displays[0];
+
+                return {
+                    tabs: win.tabs.map(tab => tab.url),
+                    type: win.type,
+                    state: win.state,
+                    incognito: win.incognito,
+                    left: win.left,
+                    top: win.top,
+                    width: win.width,
+                    height: win.height,
+                    displayId: display.id,
+                    displayName: display.name || `Display ${displays.indexOf(display) + 1}`
+                };
+            });
 
             const savedLayouts = await getStoredLayouts();
             savedLayouts.push({
@@ -81,11 +99,12 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const windowCount = layout.data.length;
             const tabCount = layout.data.reduce((acc, win) => acc + win.tabs.length, 0);
+            const monitorNames = [...new Set(layout.data.map(win => win.displayName))].join(', ');
 
             item.innerHTML = `
                 <div class="layout-info">
                     <span class="layout-name-text">${layout.name}</span>
-                    <span class="layout-meta">${windowCount} windows, ${tabCount} tabs • ${new Date(layout.timestamp).toLocaleDateString()}</span>
+                    <span class="layout-meta">${windowCount} windows on ${monitorNames} • ${tabCount} tabs</span>
                 </div>
                 <div class="layout-actions">
                     <button class="icon-btn delete-btn" title="Delete" data-id="${layout.id}">
