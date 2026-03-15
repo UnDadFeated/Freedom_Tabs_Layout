@@ -4,11 +4,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const layoutsList = document.getElementById('layouts-list');
     const versionText = document.getElementById('version-text');
 
+    const refreshBtn = document.getElementById('refresh-btn');
+
     // Display version
     versionText.textContent = `v${chrome.runtime.getManifest().version}`;
 
     // Load existing layouts
     loadLayouts();
+
+    refreshBtn.addEventListener('click', () => {
+        loadLayouts();
+        const originalColor = refreshBtn.style.color;
+        refreshBtn.style.color = 'var(--primary)';
+        setTimeout(() => refreshBtn.style.color = originalColor, 500);
+    });
 
     saveBtn.addEventListener('click', async () => {
         const name = layoutNameInput.value.trim() || `Layout ${new Date().toLocaleString()}`;
@@ -24,8 +33,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 let top = win.top;
                 let width = win.width;
                 let height = win.height;
+                let diagnostic = {};
 
-                // Attempt to get global coordinates via scripting for Linux/multi-monitor stability
+                // Deep Probe via scripting for Linux multi-monitor stability
                 const probeableTab = win.tabs.find(t => t.url && !t.url.startsWith('chrome://') && !t.url.startsWith('edge://') && !t.url.startsWith('about:'));
                 
                 if (probeableTab) {
@@ -35,29 +45,33 @@ document.addEventListener('DOMContentLoaded', () => {
                             func: () => ({
                                 screenX: window.screenX,
                                 screenY: window.screenY,
+                                screenLeft: window.screenLeft,
+                                screenTop: window.screenTop,
                                 availLeft: window.screen.availLeft,
                                 availTop: window.screen.availTop,
                                 outerWidth: window.outerWidth,
-                                outerHeight: window.outerHeight
+                                outerHeight: window.outerHeight,
+                                devicePixelRatio: window.devicePixelRatio
                             })
                         });
 
                         if (results && results[0] && results[0].result) {
                             const res = results[0].result;
-                            // Calculate global coordinates by adding window relative position to monitor start
-                            // On Linux/Chrome, screenX/Y are often relative to the current display
-                            // while availLeft/Top are the global offsets for that display.
-                            left = res.availLeft + res.screenX;
-                            top = res.availTop + res.screenY;
-                            width = res.outerWidth;
-                            height = res.outerHeight;
+                            diagnostic = res;
+                            // Calculate global coordinates
+                            // We probe multiple properties to find which one isn't zero/relative
+                            left = (res.availLeft || 0) + (res.screenLeft || res.screenX || 0);
+                            top = (res.availTop || 0) + (res.screenTop || res.screenY || 0);
+                            width = res.outerWidth || win.width;
+                            height = res.outerHeight || win.height;
                         }
                     } catch (e) {
-                        // Fallback to win properties if script injection fails
+                        diagnostic = { error: e.message };
                     }
                 }
 
-                // Find which display this window is primarily on based on probed coordinates
+                // If calculated coordinates are still 0,0 but monitor is secondary, this is a Linux relative coordinate bug.
+                // We'll trust winCenterX for monitor assignment if possible.
                 const winCenterX = left + (width / 2);
                 const winCenterY = top + (height / 2);
                 
@@ -78,7 +92,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     width: width,
                     height: height,
                     displayId: display.id,
-                    displayName: display.name || `Display ${displays.indexOf(display) + 1}`
+                    displayName: display.name || `Display ${displays.indexOf(display) + 1}`,
+                    diagnostic: diagnostic
                 };
             }));
 
@@ -158,7 +173,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     width: w.width, 
                     height: w.height, 
                     monitor: w.displayName,
-                    displayId: w.displayId
+                    displayId: w.displayId,
+                    diagnostic: w.diagnostic
                 }))
             }, null, 2);
 

@@ -26,19 +26,53 @@ body {
   overflow-x: hidden;
 }
 
+.debug-text {
+  max-height: 200px;
+  overflow-y: auto;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+}
+
 .container {
   display: flex;
   flex-direction: column;
   gap: 24px;
 }
 
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
 header h1 {
   font-size: 1.5rem;
-  font-weight: 600;
-  background: linear-gradient(135deg, #818cf8, #c084fc);
+  font-weight: 700;
+  margin: 0;
+  background: linear-gradient(135deg, #fff 0%, #a0aec0 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
+}
+
+#refresh-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+#refresh-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--primary);
 }
 
 .subtitle {
