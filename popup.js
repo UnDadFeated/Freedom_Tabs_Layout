@@ -23,10 +23,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const name = layoutNameInput.value.trim() || `Layout ${new Date().toLocaleString()}`;
         
         try {
-            const [windows, displays] = await Promise.all([
-                chrome.windows.getAll({ populate: true }),
-                chrome.system.display.getInfo()
-            ]);
+            const allWindows = await chrome.windows.getAll({ populate: true });
+            const windows = allWindows.filter(win => win.type === 'normal');
+            const displays = await chrome.system.display.getInfo();
 
             const layoutData = await Promise.all(windows.map(async (win) => {
                 let left = win.left;
@@ -246,8 +245,13 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             // Restore layout on click (except if clicking delete/debug/copy)
-            item.addEventListener('click', (e) => {
+            item.addEventListener('click', async (e) => {
                 if (!e.target.closest('.delete-btn') && !e.target.closest('.debug-toggle') && !e.target.closest('.copy-debug-btn')) {
+                    const result = await chrome.storage.local.get(['lastStatus']);
+                    if (result.lastStatus && (Date.now() - result.lastStatus.timestamp < 15000) && result.lastStatus.type === 'info') {
+                        showStatus("A restoration is already in progress...", 'error');
+                        return;
+                    }
                     restoreLayout(layout);
                 }
             });
