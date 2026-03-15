@@ -2,6 +2,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const saveBtn = document.getElementById('save-btn');
     const layoutNameInput = document.getElementById('layout-name');
     const layoutsList = document.getElementById('layouts-list');
+    const versionText = document.getElementById('version-text');
+
+    // Display version
+    versionText.textContent = `v${chrome.runtime.getManifest().version}`;
 
     // Load existing layouts
     loadLayouts();

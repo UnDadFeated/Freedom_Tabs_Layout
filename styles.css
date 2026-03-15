@@ -20,16 +20,16 @@ body {
   font-family: 'Outfit', sans-serif;
   background-color: var(--bg);
   color: var(--text);
-  width: 350px;
-  min-height: 400px;
-  padding: 20px;
+  width: 380px;
+  min-height: 450px;
+  padding: 24px;
   overflow-x: hidden;
 }
 
 .container {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 24px;
 }
 
 header h1 {
@@ -169,9 +169,26 @@ h3 {
   color: var(--text-muted);
 }
 
+.icon-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
 .delete-btn:hover {
   color: var(--danger);
   background: rgba(239, 68, 68, 0.1);
+}
+
+.footer {
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
+
+#version-text {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  opacity: 0.6;
 }
 
 @keyframes fadeIn {
