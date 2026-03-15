@@ -45,12 +45,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
             });
 
-            const savedLayouts = await getStoredLayouts();
+            let savedLayouts = await getStoredLayouts();
+            
+            // Filter out any existing layout with the same name (case-insensitive) to prevent duplicates
+            savedLayouts = savedLayouts.filter(l => l.name.toLowerCase() !== name.toLowerCase());
+
             savedLayouts.push({
                 id: Date.now().toString(),
                 name: name,
                 timestamp: new Date().toISOString(),
-                displaySetup: displays, // Record the display layout at save time
+                displaySetup: displays,
                 data: layoutData
             });
 
