@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Freedom Tabs Layout</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Freedom Tabs</h1>
+      <p class="subtitle">Save your digital workspace</p>
+    </header>
+
+    <div class="main-actions">
+      <input type="text" id="layout-name" placeholder="Name this layout..." aria-label="Layout Name">
+      <button id="save-btn" class="primary-btn">Save Current Layout</button>
+    </div>
+
+    <hr>
+
+    <div class="saved-layouts-section">
+      <h3>Saved Layouts</h3>
+      <div id="layouts-list" class="layouts-list">
+        <!-- Layouts will be injected here -->
+        <div class="empty-state">No layouts saved yet.</div>
+      </div>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

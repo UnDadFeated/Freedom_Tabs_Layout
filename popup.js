@@ -1,0 +1,131 @@
+document.addEventListener('DOMContentLoaded', () => {
+    const saveBtn = document.getElementById('save-btn');
+    const layoutNameInput = document.getElementById('layout-name');
+    const layoutsList = document.getElementById('layouts-list');
+
+    // Load existing layouts
+    loadLayouts();
+
+    saveBtn.addEventListener('click', async () => {
+        const name = layoutNameInput.value.trim() || `Layout ${new Date().toLocaleString()}`;
+        
+        try {
+            const windows = await chrome.windows.getAll({ populate: true });
+            const layoutData = windows.map(win => ({
+                tabs: win.tabs.map(tab => tab.url),
+                type: win.type,
+                state: win.state,
+                incognito: win.incognito
+            }));
+
+            const savedLayouts = await getStoredLayouts();
+            savedLayouts.push({
+                id: Date.now().toString(),
+                name: name,
+                timestamp: new Date().toISOString(),
+                data: layoutData
+            });
+
+            await chrome.storage.local.set({ layouts: savedLayouts });
+            layoutNameInput.value = '';
+            loadLayouts();
+            
+            // Subtle feedback
+            saveBtn.textContent = 'Saved!';
+            saveBtn.style.background = '#10b981';
+            setTimeout(() => {
+                saveBtn.textContent = 'Save Current Layout';
+                saveBtn.style.background = '';
+            }, 2000);
+
+        } catch (error) {
+            console.error('Error saving layout:', error);
+            alert('Failed to save layout. Check console for details.');
+        }
+    });
+
+    async function getStoredLayouts() {
+        return new Promise((resolve) => {
+            chrome.storage.local.get(['layouts'], (result) => {
+                resolve(result.layouts || []);
+            });
+        });
+    }
+
+    async function loadLayouts() {
+        const layouts = await getStoredLayouts();
+        layoutsList.innerHTML = '';
+
+        if (layouts.length === 0) {
+            layoutsList.innerHTML = '<div class="empty-state">No layouts saved yet.</div>';
+            return;
+        }
+
+        // Sort by timestamp descending
+        layouts.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+        layouts.forEach(layout => {
+            const item = document.createElement('div');
+            item.className = 'layout-item';
+            
+            const windowCount = layout.data.length;
+            const tabCount = layout.data.reduce((acc, win) => acc + win.tabs.length, 0);
+
+            item.innerHTML = `
+                <div class="layout-info">
+                    <span class="layout-name-text">${layout.name}</span>
+                    <span class="layout-meta">${windowCount} windows, ${tabCount} tabs • ${new Date(layout.timestamp).toLocaleDateString()}</span>
+                </div>
+                <div class="layout-actions">
+                    <button class="icon-btn delete-btn" title="Delete" data-id="${layout.id}">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+                    </button>
+                </div>
+            `;
+
+            // Restore layout on click (except if clicking delete)
+            item.addEventListener('click', (e) => {
+                if (!e.target.closest('.delete-btn')) {
+                    restoreLayout(layout);
+                }
+            });
+
+            // Delete functionality
+            const deleteBtn = item.querySelector('.delete-btn');
+            deleteBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                if (confirm(`Delete layout "${layout.name}"?`)) {
+                    const currentLayouts = await getStoredLayouts();
+                    const updatedLayouts = currentLayouts.filter(l => l.id !== layout.id);
+                    await chrome.storage.local.set({ layouts: updatedLayouts });
+                    loadLayouts();
+                }
+            });
+
+            layoutsList.appendChild(item);
+        });
+    }
+
+    async function restoreLayout(layout) {
+        try {
+            for (const winData of layout.data) {
+                // Filter out restricted/empty URLs that might cause issues
+                const validUrls = winData.tabs.filter(url => 
+                    url && !url.startsWith('chrome://') && !url.startsWith('edge://')
+                );
+
+                if (validUrls.length === 0) continue;
+
+                await chrome.windows.create({
+                    url: validUrls,
+                    type: winData.type || 'normal',
+                    state: winData.state || 'normal',
+                    incognito: winData.incognito || false
+                });
+            }
+        } catch (error) {
+            console.error('Error restoring layout:', error);
+            alert('Failed to restore layout. Some tabs might be restricted (e.g., chrome:// pages).');
+        }
+    }
+});
