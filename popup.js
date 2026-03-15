@@ -268,12 +268,21 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function showStatus(message, type = 'info') {
+        const statusBar = document.getElementById('status-bar');
+        if (!statusBar) return;
+        statusBar.textContent = message;
+        statusBar.className = `status-bar ${type}`;
+        statusBar.style.display = 'block';
+        if (type === 'success' || type === 'error') {
+            setTimeout(() => {
+                if (statusBar.textContent === message) statusBar.style.display = 'none';
+            }, 4000);
+        }
+    }
+
     async function restoreLayout(layout) {
         try {
-            for (const winData of layout.data) {
-                // Filter out restricted/empty URLs that might cause issues
-                const validUrls = winData.tabs.filter(url => 
-                    url && !url.startsWith('chrome://') && !url.startsWith('edge://')
             showStatus(`Restoring "${layout.name}"...`, 'info');
             
             for (let i = 0; i < layout.data.length; i++) {
@@ -283,19 +292,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 const createData = {
                     url: winData.tabs,
                     type: winData.type,
-                    state: 'normal' // Always create in 'normal' first to allow positioning
+                    state: 'normal'
                 };
 
-                // Create the window
                 const newWindow = await chrome.windows.create(createData);
 
-                // RELIABILITY: Wait for window to be fully registered by OS/Linux (1000ms)
+                // Wait for window to be fully registered by OS/Linux (1000ms)
                 await new Promise(resolve => setTimeout(resolve, 1000));
 
                 showStatus(`Window ${i+1}/${layout.data.length}: Positioning to ${winData.displayName}...`, 'info');
 
-                // ATOMIC MOVE: Combine position, size, and focus into a single update call
-                // This reduces the number of signals sent to the window manager.
                 const updateData = {
                     left: Math.round(winData.left),
                     top: Math.round(winData.top),
@@ -311,10 +317,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     showStatus(`Warning: Window ${i+1} move failed.`, 'error');
                 }
 
-                // Final wait before state change
                 await new Promise(resolve => setTimeout(resolve, 500));
 
-                // Apply final state if it was maximized or minimized
                 if (winData.state && winData.state !== 'normal') {
                     await chrome.windows.update(newWindow.id, { state: winData.state });
                 }
