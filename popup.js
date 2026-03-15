@@ -274,54 +274,56 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Filter out restricted/empty URLs that might cause issues
                 const validUrls = winData.tabs.filter(url => 
                     url && !url.startsWith('chrome://') && !url.startsWith('edge://')
-                );
-
-                if (validUrls.length === 0) continue;
-
-                // Prepare window creation options (Always start 'normal' to ensure move works)
+            showStatus(`Restoring "${layout.name}"...`, 'info');
+            
+            for (let i = 0; i < layout.data.length; i++) {
+                const winData = layout.data[i];
+                showStatus(`Window ${i + 1}/${layout.data.length}: Initializing...`, 'info');
+                
                 const createData = {
-                    url: validUrls,
-                    type: winData.type || 'normal',
-                    state: 'normal', 
-                    incognito: winData.incognito || false
+                    url: winData.tabs,
+                    type: winData.type,
+                    state: 'normal' // Always create in 'normal' first to allow positioning
                 };
 
                 // Create the window
                 const newWindow = await chrome.windows.create(createData);
 
-                // Delay to ensure window is initialized
-                await new Promise(resolve => setTimeout(resolve, 600));
+                // RELIABILITY: Wait for window to be fully registered by OS/Linux (1000ms)
+                await new Promise(resolve => setTimeout(resolve, 1000));
 
-                // Stage 1: Move to target Monitor coordinates (X, Y only)
-                if (winData.left !== undefined || winData.top !== undefined) {
-                    await chrome.windows.update(newWindow.id, {
-                        left: winData.left,
-                        top: winData.top,
-                        state: 'normal'
-                    });
-                    
-                    // Small delay after move
-                    await new Promise(resolve => setTimeout(resolve, 300));
+                showStatus(`Window ${i+1}/${layout.data.length}: Positioning to ${winData.displayName}...`, 'info');
+
+                // ATOMIC MOVE: Combine position, size, and focus into a single update call
+                // This reduces the number of signals sent to the window manager.
+                const updateData = {
+                    left: Math.round(winData.left),
+                    top: Math.round(winData.top),
+                    width: Math.round(winData.width),
+                    height: Math.round(winData.height),
+                    focused: true
+                };
+
+                try {
+                    await chrome.windows.update(newWindow.id, updateData);
+                } catch (err) {
+                    console.error(`Positioning failed for window ${i+1}:`, err);
+                    showStatus(`Warning: Window ${i+1} move failed.`, 'error');
                 }
 
-                // Stage 2: Set precise Width and Height
-                if (winData.width !== undefined || winData.height !== undefined) {
-                    await chrome.windows.update(newWindow.id, {
-                        width: winData.width,
-                        height: winData.height
-                    });
-                    
-                    // Small delay after resize
-                    await new Promise(resolve => setTimeout(resolve, 300));
-                }
+                // Final wait before state change
+                await new Promise(resolve => setTimeout(resolve, 500));
 
-                // Stage 3: Apply final state (Maximized/Minimized)
+                // Apply final state if it was maximized or minimized
                 if (winData.state && winData.state !== 'normal') {
                     await chrome.windows.update(newWindow.id, { state: winData.state });
                 }
             }
+
+            showStatus(`Layout "${layout.name}" restored successfully!`, 'success');
         } catch (error) {
-            // Error handling without generic alerts
+            console.error('Restoration failed:', error);
+            showStatus(`Restoration failed: ${error.message}`, 'error');
         }
     }
 });
