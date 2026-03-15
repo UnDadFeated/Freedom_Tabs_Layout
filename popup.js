@@ -50,6 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 id: Date.now().toString(),
                 name: name,
                 timestamp: new Date().toISOString(),
+                displaySetup: displays, // Record the display layout at save time
                 data: layoutData
             });
 
@@ -104,11 +105,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const windowCount = layout.data.length;
             const tabCount = layout.data.reduce((acc, win) => acc + win.tabs.length, 0);
             const monitorNames = [...new Set(layout.data.map(win => win.displayName))].join(', ');
+            
+            // Build a small coordinate summary for debugging
+            const coordsInfo = layout.data.map(w => `[${w.left},${w.top}]`).join(' ');
 
             item.innerHTML = `
                 <div class="layout-info">
                     <span class="layout-name-text">${layout.name}</span>
                     <span class="layout-meta">${windowCount} windows on ${monitorNames} • ${tabCount} tabs</span>
+                    <span class="debug-coords" style="display:none">${coordsInfo}</span>
                 </div>
                 <div class="layout-actions">
                     <button class="icon-btn delete-btn" title="Delete" data-id="${layout.id}">
@@ -161,19 +166,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Create the window
                 const newWindow = await chrome.windows.create(createData);
 
-                // Step 1: Force it to the correct monitor coordinates while in 'normal' state
-                const updateData = {};
+                // Delay to ensure window is initialized on Linux
+                await new Promise(resolve => setTimeout(resolve, 500));
+
+                // Step 1: Force it to the correct monitor coordinates
+                const updateData = { state: 'normal' };
                 if (winData.left !== undefined) updateData.left = winData.left;
                 if (winData.top !== undefined) updateData.top = winData.top;
                 if (winData.width !== undefined) updateData.width = winData.width;
                 if (winData.height !== undefined) updateData.height = winData.height;
                 
-                if (Object.keys(updateData).length > 0) {
-                    await chrome.windows.update(newWindow.id, updateData);
-                }
+                await chrome.windows.update(newWindow.id, updateData);
 
-                // Step 2: Apply the final state (maximized/minimized) after it's on the right screen
+                // Step 2: Apply the final state if needed
                 if (winData.state && winData.state !== 'normal') {
+                    await new Promise(resolve => setTimeout(resolve, 200));
                     await chrome.windows.update(newWindow.id, { state: winData.state });
                 }
             }
