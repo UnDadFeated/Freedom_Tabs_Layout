@@ -37,6 +37,7 @@ header h1 {
   font-weight: 600;
   background: linear-gradient(135deg, #818cf8, #c084fc);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
@@ -85,6 +86,14 @@ input[type="text"]:focus {
 
 .primary-btn:active {
   transform: translateY(0);
+}
+
+.primary-btn.success {
+  background: #10b981;
+}
+
+.primary-btn.error {
+  background: var(--danger);
 }
 
 hr {

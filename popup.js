@@ -30,17 +30,23 @@ document.addEventListener('DOMContentLoaded', () => {
             layoutNameInput.value = '';
             loadLayouts();
             
-            // Subtle feedback
+            // Informative feedback without using alert()
+            const originalText = saveBtn.textContent;
             saveBtn.textContent = 'Saved!';
-            saveBtn.style.background = '#10b981';
+            saveBtn.classList.add('success');
             setTimeout(() => {
-                saveBtn.textContent = 'Save Current Layout';
-                saveBtn.style.background = '';
+                saveBtn.textContent = originalText;
+                saveBtn.classList.remove('success');
             }, 2000);
 
         } catch (error) {
-            console.error('Error saving layout:', error);
-            alert('Failed to save layout. Check console for details.');
+            // Silently handle or log to a custom UI element if needed
+            saveBtn.textContent = 'Error Saving';
+            saveBtn.classList.add('error');
+            setTimeout(() => {
+                saveBtn.textContent = 'Save Current Layout';
+                saveBtn.classList.remove('error');
+            }, 3000);
         }
     });
 
@@ -124,8 +130,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
         } catch (error) {
-            console.error('Error restoring layout:', error);
-            alert('Failed to restore layout. Some tabs might be restricted (e.g., chrome:// pages).');
+            // Error handling without generic alerts
         }
     }
 });
