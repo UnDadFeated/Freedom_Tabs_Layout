@@ -19,10 +19,44 @@ document.addEventListener('DOMContentLoaded', () => {
                 chrome.system.display.getInfo()
             ]);
 
-            const layoutData = windows.map(win => {
-                // Find which display this window is primarily on
-                const winCenterX = win.left + (win.width / 2);
-                const winCenterY = win.top + (win.height / 2);
+            const layoutData = await Promise.all(windows.map(async (win) => {
+                let left = win.left;
+                let top = win.top;
+                let width = win.width;
+                let height = win.height;
+
+                // Attempt to get global coordinates via scripting for Linux/multi-monitor stability
+                const probeableTab = win.tabs.find(t => t.url && !t.url.startsWith('chrome://') && !t.url.startsWith('edge://') && !t.url.startsWith('about:'));
+                
+                if (probeableTab) {
+                    try {
+                        const results = await chrome.scripting.executeScript({
+                            target: { tabId: probeableTab.id },
+                            func: () => ({
+                                screenX: window.screenX,
+                                screenY: window.screenY,
+                                outerWidth: window.outerWidth,
+                                outerHeight: window.outerHeight
+                            })
+                        });
+
+                        if (results && results[0] && results[0].result) {
+                            const res = results[0].result;
+                            // Only use these if they aren't zero (unless primary is at 0,0)
+                            // On Linux, these are often the "real" global coordinates
+                            left = res.screenX;
+                            top = res.screenY;
+                            width = res.outerWidth;
+                            height = res.outerHeight;
+                        }
+                    } catch (e) {
+                        // Fallback to win properties if script injection fails
+                    }
+                }
+
+                // Find which display this window is primarily on based on probed coordinates
+                const winCenterX = left + (width / 2);
+                const winCenterY = top + (height / 2);
                 
                 const display = displays.find(d => 
                     winCenterX >= d.bounds.left && 
@@ -36,14 +70,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     type: win.type,
                     state: win.state,
                     incognito: win.incognito,
-                    left: win.left,
-                    top: win.top,
-                    width: win.width,
-                    height: win.height,
+                    left: left,
+                    top: top,
+                    width: width,
+                    height: height,
                     displayId: display.id,
                     displayName: display.name || `Display ${displays.indexOf(display) + 1}`
                 };
-            });
+            }));
 
             let savedLayouts = await getStoredLayouts();
             

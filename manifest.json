@@ -1,13 +1,14 @@
 {
   "manifest_version": 3,
   "name": "Freedom Tabs Layout",
-  "version": "1.9",
+  "version": "2.0",
   "description": "Save and load layouts of open chrome windows and tabs with ease.",
   "permissions": [
     "tabs",
     "windows",
     "storage",
-    "system.display"
+    "system.display",
+    "scripting"
   ],
   "action": {
     "default_popup": "popup.html",
