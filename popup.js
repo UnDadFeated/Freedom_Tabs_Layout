@@ -150,28 +150,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (validUrls.length === 0) continue;
 
-                // Prepare window creation options (URLs only first)
+                // Prepare window creation options (Always start 'normal' to ensure move works)
                 const createData = {
                     url: validUrls,
                     type: winData.type || 'normal',
+                    state: 'normal', 
                     incognito: winData.incognito || false
                 };
 
                 // Create the window
                 const newWindow = await chrome.windows.create(createData);
 
-                // Apply geometry via update for precise positioning on multi-monitor setups
-                if (winData.state === 'normal') {
-                    const updateData = {};
-                    if (winData.left !== undefined) updateData.left = winData.left;
-                    if (winData.top !== undefined) updateData.top = winData.top;
-                    if (winData.width !== undefined) updateData.width = winData.width;
-                    if (winData.height !== undefined) updateData.height = winData.height;
-                    
-                    if (Object.keys(updateData).length > 0) {
-                        await chrome.windows.update(newWindow.id, updateData);
-                    }
-                } else {
+                // Step 1: Force it to the correct monitor coordinates while in 'normal' state
+                const updateData = {};
+                if (winData.left !== undefined) updateData.left = winData.left;
+                if (winData.top !== undefined) updateData.top = winData.top;
+                if (winData.width !== undefined) updateData.width = winData.width;
+                if (winData.height !== undefined) updateData.height = winData.height;
+                
+                if (Object.keys(updateData).length > 0) {
+                    await chrome.windows.update(newWindow.id, updateData);
+                }
+
+                // Step 2: Apply the final state (maximized/minimized) after it's on the right screen
+                if (winData.state && winData.state !== 'normal') {
                     await chrome.windows.update(newWindow.id, { state: winData.state });
                 }
             }
