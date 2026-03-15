@@ -35,6 +35,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             func: () => ({
                                 screenX: window.screenX,
                                 screenY: window.screenY,
+                                availLeft: window.screen.availLeft,
+                                availTop: window.screen.availTop,
                                 outerWidth: window.outerWidth,
                                 outerHeight: window.outerHeight
                             })
@@ -42,10 +44,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
                         if (results && results[0] && results[0].result) {
                             const res = results[0].result;
-                            // Only use these if they aren't zero (unless primary is at 0,0)
-                            // On Linux, these are often the "real" global coordinates
-                            left = res.screenX;
-                            top = res.screenY;
+                            // Calculate global coordinates by adding window relative position to monitor start
+                            // On Linux/Chrome, screenX/Y are often relative to the current display
+                            // while availLeft/Top are the global offsets for that display.
+                            left = res.availLeft + res.screenX;
+                            top = res.availTop + res.screenY;
                             width = res.outerWidth;
                             height = res.outerHeight;
                         }
