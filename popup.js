@@ -117,7 +117,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="layout-info">
                     <span class="layout-name-text">${layout.name}</span>
                     <span class="layout-meta">${windowCount} windows on ${monitorNames} • ${tabCount} tabs</span>
-                    <span class="debug-coords" style="display:none">${coordsInfo}</span>
+                    <button class="debug-toggle">Show Debug Info</button>
+                    <div class="debug-info">${JSON.stringify({ 
+                        displays: layout.displaySetup, 
+                        windows: layout.data.map(w => ({ left: w.left, top: w.top, width: w.width, height: w.height, monitor: w.displayName }))
+                    }, null, 2)}</div>
                 </div>
                 <div class="layout-actions">
                     <button class="icon-btn delete-btn" title="Delete" data-id="${layout.id}">
@@ -126,9 +130,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             `;
 
-            // Restore layout on click (except if clicking delete)
+            // Debug toggle functionality
+            const debugToggle = item.querySelector('.debug-toggle');
+            const debugInfo = item.querySelector('.debug-info');
+            debugToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const isHidden = debugInfo.style.display === 'none' || !debugInfo.style.display;
+                debugInfo.style.display = isHidden ? 'block' : 'none';
+                debugToggle.textContent = isHidden ? 'Hide Debug Info' : 'Show Debug Info';
+            });
+
+            // Restore layout on click (except if clicking delete/debug)
             item.addEventListener('click', (e) => {
-                if (!e.target.closest('.delete-btn')) {
+                if (!e.target.closest('.delete-btn') && !e.target.closest('.debug-toggle')) {
                     restoreLayout(layout);
                 }
             });
@@ -170,21 +184,34 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Create the window
                 const newWindow = await chrome.windows.create(createData);
 
-                // Delay to ensure window is initialized on Linux
-                await new Promise(resolve => setTimeout(resolve, 500));
+                // Delay to ensure window is initialized
+                await new Promise(resolve => setTimeout(resolve, 600));
 
-                // Step 1: Force it to the correct monitor coordinates
-                const updateData = { state: 'normal' };
-                if (winData.left !== undefined) updateData.left = winData.left;
-                if (winData.top !== undefined) updateData.top = winData.top;
-                if (winData.width !== undefined) updateData.width = winData.width;
-                if (winData.height !== undefined) updateData.height = winData.height;
-                
-                await chrome.windows.update(newWindow.id, updateData);
+                // Stage 1: Move to target Monitor coordinates (X, Y only)
+                if (winData.left !== undefined || winData.top !== undefined) {
+                    await chrome.windows.update(newWindow.id, {
+                        left: winData.left,
+                        top: winData.top,
+                        state: 'normal'
+                    });
+                    
+                    // Small delay after move
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                }
 
-                // Step 2: Apply the final state if needed
+                // Stage 2: Set precise Width and Height
+                if (winData.width !== undefined || winData.height !== undefined) {
+                    await chrome.windows.update(newWindow.id, {
+                        width: winData.width,
+                        height: winData.height
+                    });
+                    
+                    // Small delay after resize
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                }
+
+                // Stage 3: Apply final state (Maximized/Minimized)
                 if (winData.state && winData.state !== 'normal') {
-                    await new Promise(resolve => setTimeout(resolve, 200));
                     await chrome.windows.update(newWindow.id, { state: winData.state });
                 }
             }
