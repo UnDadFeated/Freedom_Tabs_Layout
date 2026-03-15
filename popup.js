@@ -15,7 +15,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 tabs: win.tabs.map(tab => tab.url),
                 type: win.type,
                 state: win.state,
-                incognito: win.incognito
+                incognito: win.incognito,
+                // Capture window geometry
+                left: win.left,
+                top: win.top,
+                width: win.width,
+                height: win.height
             }));
 
             const savedLayouts = await getStoredLayouts();
@@ -122,12 +127,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (validUrls.length === 0) continue;
 
-                await chrome.windows.create({
+                // Prepare window creation options
+                const createData = {
                     url: validUrls,
                     type: winData.type || 'normal',
-                    state: winData.state || 'normal',
                     incognito: winData.incognito || false
-                });
+                };
+
+                // Apply geometry if window state is normal
+                if (winData.state === 'normal') {
+                    if (winData.left !== undefined) createData.left = winData.left;
+                    if (winData.top !== undefined) createData.top = winData.top;
+                    if (winData.width !== undefined) createData.width = winData.width;
+                    if (winData.height !== undefined) createData.height = winData.height;
+                } else {
+                    createData.state = winData.state;
+                }
+
+                await chrome.windows.create(createData);
             }
         } catch (error) {
             // Error handling without generic alerts
