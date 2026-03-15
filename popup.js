@@ -150,24 +150,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (validUrls.length === 0) continue;
 
-                // Prepare window creation options
+                // Prepare window creation options (URLs only first)
                 const createData = {
                     url: validUrls,
                     type: winData.type || 'normal',
                     incognito: winData.incognito || false
                 };
 
-                // Apply geometry if window state is normal
-                if (winData.state === 'normal') {
-                    if (winData.left !== undefined) createData.left = winData.left;
-                    if (winData.top !== undefined) createData.top = winData.top;
-                    if (winData.width !== undefined) createData.width = winData.width;
-                    if (winData.height !== undefined) createData.height = winData.height;
-                } else {
-                    createData.state = winData.state;
-                }
+                // Create the window
+                const newWindow = await chrome.windows.create(createData);
 
-                await chrome.windows.create(createData);
+                // Apply geometry via update for precise positioning on multi-monitor setups
+                if (winData.state === 'normal') {
+                    const updateData = {};
+                    if (winData.left !== undefined) updateData.left = winData.left;
+                    if (winData.top !== undefined) updateData.top = winData.top;
+                    if (winData.width !== undefined) updateData.width = winData.width;
+                    if (winData.height !== undefined) updateData.height = winData.height;
+                    
+                    if (Object.keys(updateData).length > 0) {
+                        await chrome.windows.update(newWindow.id, updateData);
+                    }
+                } else {
+                    await chrome.windows.update(newWindow.id, { state: winData.state });
+                }
             }
         } catch (error) {
             // Error handling without generic alerts
