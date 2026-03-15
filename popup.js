@@ -58,10 +58,26 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (results && results[0] && results[0].result) {
                             const res = results[0].result;
                             diagnostic = res;
+                            
                             // Calculate global coordinates
-                            // We probe multiple properties to find which one isn't zero/relative
-                            left = (res.availLeft || 0) + (res.screenLeft || res.screenX || 0);
-                            top = (res.availTop || 0) + (res.screenTop || res.screenY || 0);
+                            // Start with what the Extension API gave us as a base
+                            left = win.left;
+                            top = win.top;
+
+                            // If Chrome reporting is relative (near 0) but we have availLeft/Top
+                            // it strongly suggests we are on a secondary monitor in a relative coordinate system
+                            const sX = res.screenLeft || res.screenX || 0;
+                            const sY = res.screenTop || res.screenY || 0;
+                            
+                            if (res.availLeft !== undefined && res.availTop !== undefined) {
+                                // Reconciliation: If sX is 0 but availLeft > 0, use availLeft
+                                left = res.availLeft + sX;
+                                top = res.availTop + sY;
+                            } else {
+                                left = sX;
+                                top = sY;
+                            }
+
                             width = res.outerWidth || win.width;
                             height = res.outerHeight || win.height;
                         }
@@ -70,17 +86,30 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
 
-                // If calculated coordinates are still 0,0 but monitor is secondary, this is a Linux relative coordinate bug.
-                // We'll trust winCenterX for monitor assignment if possible.
+                // Final Reconciliation: 
+                // If coordinates are still 0,0 but 'win' properties from Extension API 
+                // suggest it might be elsewhere, or if we need to force monitor assignment.
                 const winCenterX = left + (width / 2);
                 const winCenterY = top + (height / 2);
                 
-                const display = displays.find(d => 
+                let display = displays.find(d => 
                     winCenterX >= d.bounds.left && 
                     winCenterX <= d.bounds.left + d.bounds.width &&
                     winCenterY >= d.bounds.top && 
                     winCenterY <= d.bounds.top + d.bounds.height
-                ) || displays[0];
+                );
+
+                // If not found by center, find by which monitor it overlaps most or fallback to Extension API's displayId
+                if (!display) {
+                    display = displays.find(d => d.id === win.displayId) || displays[0];
+                }
+
+                // If it's on a secondary display but coordinates are 0,0, 
+                // force them to the display's origin.
+                if (display && display.bounds.left !== 0 && left === 0 && top === 0) {
+                    left = display.bounds.left;
+                    top = display.bounds.top;
+                }
 
                 return {
                     tabs: win.tabs.map(tab => tab.url),
